@@ -22,7 +22,7 @@ class DirectionalLight {
         let projectionMatrix = mat4.create();
         // console.log(mat4);
         // var k = width / height //窗口宽高比
-        let s = 100;
+        let s = 150;
         // let camera = new THREE.OrthographicCamera(-s, s, s, -s, 1, 1000)
         // camera.position.set(this.lightPos)
         // camera.lookAt(this.focalPoint);
