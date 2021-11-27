@@ -19,8 +19,6 @@ varying highp vec3 vNormal;
 #define PCF_NUM_SAMPLES NUM_SAMPLES
 #define NUM_RINGS 10
 
-#define LIGHT_WIDTH 5.0
-
 #define EPS 1e-3
 #define PI 3.141592653589793
 #define PI2 6.283185307179586
@@ -102,21 +100,19 @@ void uniformDiskSamples( const in vec2 randomSeed ) {
     radius = sqrt(sampleY);
   }
 }
-#define NEAR_PLANE 9.5
-#define LIGHT_WORLD_SIZE .5
-#define LIGHT_FRUSTUM_WIDTH 3.75
-// Assuming that LIGHT_FRUSTUM_WIDTH == LIGHT_FRUSTUM_HEIGHT
-#define LIGHT_SIZE_UV (LIGHT_WORLD_SIZE / LIGHT_FRUSTUM_WIDTH) 
+#define LIGHT_WIDTH 6.0
+#define NEAR_PLANE 0.001
 
 float findBlocker( sampler2D shadowMap,  vec2 uv, float zReceiver) {
   vec2 texelSize = vec2(1.0 / 300.0, 1.0 / 300.0);
-  float searchWidth = LIGHT_SIZE_UV * (zReceiver - NEAR_PLANE) / zReceiver; 
+  float searchWidth = LIGHT_WIDTH * (zReceiver - NEAR_PLANE) / zReceiver; 
   float zBlocker = 0.0;
   int blockerNum = 0;
   float bias = 0.0035;
   for(int i = 0;i < BLOCKER_SEARCH_NUM_SAMPLES; ++i){
-    float ztmp = unpack(texture2D(shadowMap, uv + poissonDisk[i] * texelSize * searchWidth));
-    if(ztmp < zReceiver - bias && ztmp > EPS){
+    vec2 offset = poissonDisk[i] * searchWidth * texelSize;
+    float ztmp = unpack(texture2D(shadowMap, uv + offset));
+    if(ztmp < (zReceiver - bias) && ztmp > EPS){
       zBlocker += ztmp;
       ++blockerNum;
     }
@@ -167,7 +163,7 @@ float PCSS(sampler2D shadowMap, vec4 coords){
   }
   // STEP 2: penumbra size
   float penumbraRatio = (zReceiver - avgBlockerDepth) / avgBlockerDepth;
-  float w_penmbra = penumbraRatio * LIGHT_SIZE_UV * NEAR_PLANE / coords.z;
+  float w_penmbra = penumbraRatio * LIGHT_WIDTH;
 
   // STEP 3: filtering
   return PCF(shadowMap, coords, w_penmbra);
