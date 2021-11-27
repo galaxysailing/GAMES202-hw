@@ -14,7 +14,7 @@ varying highp vec3 vFragPos;
 varying highp vec3 vNormal;
 
 // Shadow map related variables
-#define NUM_SAMPLES 20
+#define NUM_SAMPLES 100
 #define BLOCKER_SEARCH_NUM_SAMPLES NUM_SAMPLES
 #define PCF_NUM_SAMPLES NUM_SAMPLES
 #define NUM_RINGS 10
@@ -47,6 +47,25 @@ float unpack(vec4 rgbaDepth) {
 }
 
 vec2 poissonDisk[NUM_SAMPLES];
+
+void poissonDiskInit(){
+  poissonDisk[0] = vec2(-0.94201624, -0.39906216);
+  poissonDisk[1] = vec2(0.94558609, -0.76890725);
+  poissonDisk[2] = vec2(-0.094184101, -0.92938870);
+  poissonDisk[3] = vec2( 0.34495938, 0.29387760);
+  poissonDisk[4] = vec2(-0.91588581, 0.45771432);
+  poissonDisk[5] = vec2(-0.81544232, -0.87912464);
+  poissonDisk[6] = vec2(-0.38277543, 0.27676845);
+  poissonDisk[7] = vec2(0.97484398, 0.75648379);
+  poissonDisk[8] = vec2( 0.44323325, -0.97511554);
+  poissonDisk[9] = vec2( 0.53742981, -0.47373420);
+  poissonDisk[10] = vec2(-0.26496911, -0.41893023);
+  poissonDisk[11] = vec2( 0.79197514, 0.19090188);
+  poissonDisk[12] = vec2( -0.24188840, 0.99706507);
+  poissonDisk[13] = vec2(-0.81409955, 0.91437590 );
+  poissonDisk[14] = vec2(0.19984126, 0.78641367);
+  poissonDisk[15] = vec2(0.14383161, -0.14100790);
+}
 
 void poissonDiskSamples( const in vec2 randomSeed ) {
 
@@ -83,20 +102,29 @@ void uniformDiskSamples( const in vec2 randomSeed ) {
     radius = sqrt(sampleY);
   }
 }
+#define NEAR_PLANE 9.5
+#define LIGHT_WORLD_SIZE .5
+#define LIGHT_FRUSTUM_WIDTH 3.75
+// Assuming that LIGHT_FRUSTUM_WIDTH == LIGHT_FRUSTUM_HEIGHT
+#define LIGHT_SIZE_UV (LIGHT_WORLD_SIZE / LIGHT_FRUSTUM_WIDTH) 
 
-float findBlocker( sampler2D shadowMap,  vec2 uv, float zReceiver ) {
+float findBlocker( sampler2D shadowMap,  vec2 uv, float zReceiver) {
   vec2 texelSize = vec2(1.0 / 300.0, 1.0 / 300.0);
-  float closestDepth = 0.0;
-  uniformDiskSamples(uv);
-  float center = unpack(texture2D(shadowMap, uv));
-  for(int i = 0;i < 10000000; ++i){
-    if(i >= NUM_SAMPLES)break;
-    closestDepth += unpack(texture2D(shadowMap, uv + poissonDisk[i] * texelSize));
+  float searchWidth = LIGHT_SIZE_UV * (zReceiver - NEAR_PLANE) / zReceiver; 
+  float zBlocker = 0.0;
+  int blockerNum = 0;
+  float bias = 0.0035;
+  for(int i = 0;i < BLOCKER_SEARCH_NUM_SAMPLES; ++i){
+    float ztmp = unpack(texture2D(shadowMap, uv + poissonDisk[i] * texelSize * searchWidth));
+    if(ztmp < zReceiver - bias && ztmp > EPS){
+      zBlocker += ztmp;
+      ++blockerNum;
+    }
   }
-  closestDepth /= float(NUM_SAMPLES);
-  float dist = zReceiver - closestDepth;
-  float w_penmbra = LIGHT_WIDTH * dist / closestDepth;
-	return abs(w_penmbra);
+  if(blockerNum < 1){
+    return -1.0;
+  }
+  return zBlocker / float(blockerNum);
 }
 
 float PCF(sampler2D shadowMap, vec4 shadowCoord, float filterSize) {
@@ -104,7 +132,7 @@ float PCF(sampler2D shadowMap, vec4 shadowCoord, float filterSize) {
     return 0.0;
   }
   float currentDepth = shadowCoord.z;
-  vec2 texelSize = vec2(1.0 / 300.0, 1.0 / 300.0);
+  vec2 texelSize = vec2(1.0 / 300.0, 1.0 / 300.0) * filterSize;
   // vec2 texelSize = textureSize(shadowMap, 0);
   float vis = 0.0;
   // vec3 normal = normalize(vNormal);
@@ -112,11 +140,10 @@ float PCF(sampler2D shadowMap, vec4 shadowCoord, float filterSize) {
   // float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
 
   float bias = 0.0035;
-  poissonDiskSamples(shadowCoord.xy);
-  // poissonDiskSamples(vec2(0,0));
-  for(int i = 0;i < 10000000; ++i){
-    if(i >= NUM_SAMPLES)break;
-    float closestDepth = unpack(texture2D(shadowMap, shadowCoord.xy + poissonDisk[i] * texelSize * filterSize));
+  
+  for(int i = 0;i < PCF_NUM_SAMPLES; ++i){
+    vec2 offset = poissonDisk[i] * texelSize;
+    float closestDepth = unpack(texture2D(shadowMap, shadowCoord.xy + offset));
     vis += currentDepth - bias > closestDepth ? 0.0 : 1.0;
   }
 
@@ -133,12 +160,17 @@ float PCF(sampler2D shadowMap, vec4 shadowCoord, float filterSize) {
 float PCSS(sampler2D shadowMap, vec4 coords){
 
   // STEP 1: avgblocker depth
-  float currentDepth = coords.z;
+  float zReceiver = coords.z;
+  float avgBlockerDepth = findBlocker(shadowMap, coords.xy, zReceiver);
+  if(avgBlockerDepth < 0.0){
+    return 1.0;
+  }
   // STEP 2: penumbra size
-  float filterSize = findBlocker(shadowMap, coords.xy, currentDepth);
-  // STEP 3: filtering
+  float penumbraRatio = (zReceiver - avgBlockerDepth) / avgBlockerDepth;
+  float w_penmbra = penumbraRatio * LIGHT_SIZE_UV * NEAR_PLANE / coords.z;
 
-  return PCF(shadowMap, coords, filterSize);
+  // STEP 3: filtering
+  return PCF(shadowMap, coords, w_penmbra);
 
 }
 
@@ -181,8 +213,10 @@ void main(void) {
   float visibility;
   vec3 shadowCoord = vPositionFromLight.xyz / vPositionFromLight.w;
   shadowCoord = shadowCoord * 0.5 + 0.5;
+  poissonDiskSamples(shadowCoord.xy);
+  // poissonDiskInit();
   // visibility = useShadowMap(uShadowMap, vec4(shadowCoord, 1.0));
-  // visibility = PCF(uShadowMap, vec4(shadowCoord, 1.0), 1.5);
+  // visibility = PCF(uShadowMap, vec4(shadowCoord, 1.0), 1.2);
   visibility = PCSS(uShadowMap, vec4(shadowCoord, 1.0));
 
   vec3 phongColor = blinnPhong();
