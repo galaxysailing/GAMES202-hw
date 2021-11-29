@@ -131,11 +131,11 @@ float PCF(sampler2D shadowMap, vec4 shadowCoord, float filterSize) {
   vec2 texelSize = vec2(1.0 / 300.0, 1.0 / 300.0) * filterSize;
   // vec2 texelSize = textureSize(shadowMap, 0);
   float vis = 0.0;
-  // vec3 normal = normalize(vNormal);
-  // vec3 lightDir = normalize(uLightPos);
-  // float bias = max(0.05 * (1.0 - dot(normal, lightDir)), 0.005);
+  vec3 normal = normalize(vNormal);
+  vec3 lightDir = normalize(uLightPos);
+  float bias = max(0.0025 * (1.0 - dot(normal, lightDir)), 0.0);
 
-  float bias = 0.0035;
+  // float bias = 0.0035;
   
   for(int i = 0;i < PCF_NUM_SAMPLES; ++i){
     vec2 offset = poissonDisk[i] * texelSize;
@@ -172,12 +172,13 @@ float PCSS(sampler2D shadowMap, vec4 coords){
 
 
 float useShadowMap(sampler2D shadowMap, vec4 shadowCoord){
-  float closestDepth = texture2D(shadowMap, shadowCoord.xy).r;
+  // float closestDepth = texture2D(shadowMap, shadowCoord.xy).r;
+  float closestDepth = unpack(texture2D(shadowMap, shadowCoord.xy));
   float currentDepth = shadowCoord.z;
-  // vec3 normal = normalize(vNormal);
-  // vec3 lightDir = normalize(uLightPos);
-  // float bias = max(0.005 * (1.0 - dot(normal, lightDir)), 0.0022);
-  float bias = 0.0025;
+  vec3 normal = normalize(vNormal);
+  vec3 lightDir = normalize(uLightPos);
+  float bias = max(0.005 * (1.0 - dot(normal, lightDir)), 0.0001);
+  // float bias = 0.005;
   return currentDepth - bias > closestDepth ? 0.0 : 1.0;
 }
 
