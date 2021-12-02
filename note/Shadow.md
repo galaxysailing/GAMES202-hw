@@ -76,6 +76,24 @@ $$
 - 通过相似关系得到light map的search width
 - 如果确认边缘的search width需要特殊处理
 
+## 5 other
+
+### 5.1 VSSM(Variance Soft Shadow Mapping)
+
+作为一种加速PCSS的方法，但会产生Light leaking的问题
+
+### 5.2 Moment Shadow Mapping
+
+解决VSSM的Light leaking问题
+
+## 6 数理来源
+
+$$
+L_{o}(p, \omega_{o}) = \int_{\Omega+} L_{i}(p, \omega_{i}) f_{r}(p,\omega_{i}, \omega_{o}) \cos{\theta_{i}} V(p, \omega_{i})d\omega_{i} \\
+$$
+$$
+L_{o}(p, \omega_{o}) \approx \frac{\int_{\Omega+}V(p, \omega_{i})d\omega_{i}}{\int_{\Omega+}d\omega_{i}}\int_{\Omega+} L_{i}(p, \omega_{i}) f_{r}(p,\omega_{i}, \omega_{o})\cos{\theta_{i}} d\omega_{i}
+$$
 
 ## Reference
 
