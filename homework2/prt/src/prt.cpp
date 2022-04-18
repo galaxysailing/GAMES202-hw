@@ -251,6 +251,7 @@ public:
             std::uniform_real_distribution<> rng(0.0, 1.0);
             const int sample_side = static_cast<int>(floor(sqrt(m_SampleCount)));
             
+            int max_bounce = 0;
 			for (int i = 0; i < mesh->getVertexCount(); i++)
 			{
                 std::vector<double> coeffs;
@@ -259,7 +260,7 @@ public:
 					for (int p = 0; p < sample_side; p++) {
                         Point3f v = mesh->getVertexPositions().col(i);
                         Normal3f n = mesh->getVertexNormals().col(i);
-
+                        int cnt = 0;
                         for (int b = 0; b < m_Bounce; ++b) {
 
                             double alpha = (t + rng(gen)) / sample_side;
@@ -288,8 +289,12 @@ public:
 
                                 v = inte.p;
                                 n = t_normal;
+                                ++cnt;
                             }
 
+                        }
+                        if (cnt > max_bounce) {
+                            max_bounce = cnt;
                         }
 
 					}
@@ -305,6 +310,8 @@ public:
                 //printf("\n");
 
 			}
+
+            printf("max valid bounce: %d\n", max_bounce);
 
         }
 
