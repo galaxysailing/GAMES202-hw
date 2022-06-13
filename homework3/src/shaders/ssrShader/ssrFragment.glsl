@@ -191,14 +191,14 @@ vec3 inDirLight(vec2 init_uv, float s){
   vec3 viewDir = normalize(pos - uCameraPos);
   for(int i = 0; i < SAMPLE_NUM; ++i){
     float pdf;
-    s += pos.x * pos.y + pos.z;
+    s += pos.x * pos.y + pos.z + pos.x;
     vec3 tdir = SampleHemisphereUniform(s, pdf), dir;
-    vec3 b1, b2;
-    LocalBasis(normal, b1, b2);
-    b1 = normalize(b1);
-    b2 = normalize(b2);
-    dir.y = dot(b1, tdir);
-    dir.x = dot(b2, tdir);
+    vec3 t, b;
+    LocalBasis(normal, t, b);
+    t = normalize(t);
+    b = normalize(b);
+    dir.x = dot(b, tdir);
+    dir.y = dot(t, tdir);
     dir.z = dot(normal, tdir);
     dir = normalize(dir);
 

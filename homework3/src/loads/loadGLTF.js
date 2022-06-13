@@ -58,6 +58,7 @@ function loadGLTF(renderer, path, name, materialName) {
 							break;
 					}
 
+					console.log('triangle num: ' + (mesh.indices.length / 3));
 					material.then((data) => {
 						let meshRender = new MeshRender(renderer.gl, mesh, data);
 						renderer.addMeshRender(meshRender);
