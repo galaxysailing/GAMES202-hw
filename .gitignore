@@ -32,3 +32,6 @@
 *.app
 
 build
+
+examples
+*.mp4
