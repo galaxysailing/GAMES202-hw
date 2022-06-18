@@ -43,46 +43,45 @@ void Denoiser::TemporalAccumulation(const Buffer2D<Float3> &curFilteredColor) {
     int height = m_accColor.m_height;
     int width = m_accColor.m_width;
     int kernelRadius = 3;
-    int num = kernelRadius * 2 + 1;
-    num *= num;
+    float num = kernelRadius * 2 + 1;
+    num = num * num;
 #pragma omp parallel for
     for (int y = 0; y < height; y++) {
         for (int x = 0; x < width; x++) {
             // TODO: Temporal clamp
             // Done
             Float3 color = m_accColor(x, y);
-            //Float3 mu(0.0f);
-            //Float3 sigma(0.0f);
-            //int cnt = 0;
-            //for (int i = -kernelRadius; i <= kernelRadius; ++i) {
-            //    for (int j = -kernelRadius; j <= kernelRadius; ++j) {
-            //        int nx = x + i, ny = y + j;
-            //        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-            //            mu += m_accColor(nx, ny);
-            //        }
-            //    }
-            //}
-            //mu /= num;
-            //for (int i = -kernelRadius; i <= kernelRadius; ++i) {
-            //    for (int j = -kernelRadius; j <= kernelRadius; ++j) {
-            //        int nx = x + i, ny = y + j;
-            //        if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
-            //            Float3 c = m_accColor(nx, ny);
-            //            Float3 t = c - mu;
-            //            t = t * t;
-            //            sigma += t;
-            //        }
-            //    }
-            //}
-            //sigma /= num;
+            Float3 mu(0.0f);
+            Float3 sigma(0.0f);
+            for (int i = -kernelRadius; i <= kernelRadius; ++i) {
+                for (int j = -kernelRadius; j <= kernelRadius; ++j) {
+                    int nx = x + i, ny = y + j;
+                    if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                        mu += curFilteredColor(nx, ny);
+                    }
+                }
+            }
+            mu /= num;
+            for (int i = -kernelRadius; i <= kernelRadius; ++i) {
+                for (int j = -kernelRadius; j <= kernelRadius; ++j) {
+                    int nx = x + i, ny = y + j;
+                    if (nx >= 0 && nx < width && ny >= 0 && ny < height) {
+                        Float3 c = curFilteredColor(nx, ny);
+                        Float3 t = c - mu;
+                        sigma += Sqr(t);
+                    }
+                }
+            }
+            sigma /= num;
+            sigma = SafeSqrt(sigma);
             // TODO: Exponential moving average
             // Done
             if (!m_valid(x, y)) {
                 float alpha = 1.0f;
                 m_misc(x, y) = Lerp(color, curFilteredColor(x, y), alpha);
             } else {
-                //Float3 kdotsigma = sigma * m_colorBoxK;
-                //color = Clamp(color, mu - kdotsigma, mu + kdotsigma);
+                Float3 kdotsigma = sigma * m_colorBoxK;
+                color = Clamp(color, mu - kdotsigma, mu + kdotsigma);
                 m_misc(x, y) = Lerp(color, curFilteredColor(x, y), m_alpha);
             }
         }
@@ -101,6 +100,7 @@ Buffer2D<Float3> Denoiser::Filter(const FrameInfo &frameInfo) {
             // TODO: Joint bilateral filter
             //filteredImage(x, y) = frameInfo.m_beauty(x, y);
             
+            // Done
             Float3 color = Float3(0.0);
             float weight = 0.0;
             for (int i = -kernelRadius; i < kernelRadius; ++i) {
